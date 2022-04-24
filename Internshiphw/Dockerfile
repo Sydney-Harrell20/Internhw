@@ -4,7 +4,7 @@ RUN mkdir /build
 WORKDIR /build
 
 RUN export GO11Module=on
-RUN go install github.com/SydneyHarrell20/Internhw
+RUN go install github.com/SydneyHarrell20/Internhw@latest
 RUN cd /build && clone https://github.com/SydneyHarrell20/Internhw.git
 RUN cd /build/Internshiphw/master && go build
 
