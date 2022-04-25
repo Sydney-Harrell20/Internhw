@@ -1,12 +1,14 @@
 package main
 
 import (
+	"appLogger"
 	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"storj.io/common/ranger/httpranger"
 	"storj.io/linksharing/objectranger"
@@ -18,10 +20,37 @@ type Server struct {
 	bucket  string
 }
 
+//These functions write logs to the compute's file system
+const (
+	LogsDirpath = "logs"
+)
+
+type LogDir struct {
+	LogDirectory string
+}
+
+func New() *LogDir {
+	err := os.Mkdir(LogsDirpath, 0666)
+	if err != nil {
+		return nil
+	}
+	return &LogDir{
+		LogDirectory: LogsDirpath,
+	}
+}
+
+func SetLogFile() *os.File {
+	year, month, day := time.Now().Date()
+	fileName := fmt.Sprintf("%v-%v-%v.log", day, month.String(), year)
+	filePath, _ := os.OpenFile(LogsDirpath+"/"+fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	return filePath
+}
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if r.URL.Path[0] != '/' {
 		// TODO: log that we got an unexpected path - warning
+		appLogger.Warning().Println("Unexpected path: ", r)
 		http.NotFound(w, r)
 		return
 	}
@@ -33,14 +62,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, uplink.ErrObjectNotFound) {
 			// TODO: expected not found error - add debug logging
+			appLogger.debug.Println("Expected not found error")
 			http.NotFound(w, r)
 			return
 		}
 		// TODO: no idea what this error is, add error logging
+		appLogger.Error().Println("Unknown error", err.Error)
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	// TODO: add debug logging that we're serving a request
+	appLogger.debug.Println("Serving request:", r)
 	ranger := objectranger.New(s.project, o, s.bucket)
 	httpranger.ServeContent(ctx, w, r, objectKey, o.System.Created, ranger)
 }
